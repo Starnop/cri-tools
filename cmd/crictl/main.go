@@ -23,13 +23,13 @@ import (
 	"sort"
 	"time"
 
+	"github.com/kubernetes-sigs/cri-tools/kubelet/apis/cri"
+	"github.com/kubernetes-sigs/cri-tools/kubelet/remote"
+	"github.com/kubernetes-sigs/cri-tools/pkg/version"
+
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 	"google.golang.org/grpc"
-	"k8s.io/kubernetes/pkg/kubelet/apis/cri"
-	"k8s.io/kubernetes/pkg/kubelet/remote"
-
-	"github.com/kubernetes-sigs/cri-tools/pkg/version"
 )
 
 const (
@@ -41,6 +41,8 @@ var (
 	RuntimeEndpoint string
 	// ImageEndpoint is CRI server image endpoint, default same as runtime endpoint
 	ImageEndpoint string
+	// VolumeEndpoint is CRI server volume endpoint, default same as runtime endpoint
+	VolumeEndpoint string
 	// Timeout  of connecting to server (default: 10s)
 	Timeout time.Duration
 	// Debug enable debug output
@@ -84,6 +86,26 @@ func getImageClientConnection(context *cli.Context) (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
+func getVolumeClientConnection(context *cli.Context) (*grpc.ClientConn, error) {
+	if VolumeEndpoint == "" {
+		if RuntimeEndpoint == "" {
+			return nil, fmt.Errorf("--volume-endpoint is not set")
+		}
+		VolumeEndpoint = RuntimeEndpoint
+	}
+
+	addr, dialer, err := GetAddressAndDialer(VolumeEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithTimeout(Timeout), grpc.WithDialer(dialer))
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect: %v", err)
+	}
+	return conn, nil
+}
+
 func getRuntimeService(context *cli.Context) (cri.RuntimeService, error) {
 	return remote.NewRemoteRuntimeService(RuntimeEndpoint, Timeout)
 }
@@ -112,8 +134,10 @@ func main() {
 		listContainersCommand,
 		pullImageCommand,
 		runPodCommand,
+		startPodCommand,
 		removeContainerCommand,
 		removeImageCommand,
+		removeVolumeCommand,
 		removePodCommand,
 		listPodCommand,
 		startContainerCommand,
@@ -144,6 +168,11 @@ func main() {
 			EnvVar: "IMAGE_SERVICE_ENDPOINT",
 			Usage:  "Endpoint of CRI image manager service",
 		},
+		cli.StringFlag{
+			Name:   "volume-endpoint, u",
+			EnvVar: "VOLUME_SERVICE_ENDPOINT",
+			Usage:  "Endpoint of CRI volume manager service",
+		},
 		cli.DurationFlag{
 			Name:  "timeout, t",
 			Value: defaultTimeout,
@@ -171,6 +200,7 @@ func main() {
 		if !isUseConfig {
 			RuntimeEndpoint = context.GlobalString("runtime-endpoint")
 			ImageEndpoint = context.GlobalString("image-endpoint")
+			VolumeEndpoint = context.GlobalString("volume-endpoint")
 			Timeout = context.GlobalDuration("timeout")
 			Debug = context.GlobalBool("debug")
 		} else {
@@ -194,6 +224,13 @@ func main() {
 				ImageEndpoint = config.ImageEndpoint
 			} else {
 				ImageEndpoint = context.GlobalString("image-endpoint")
+			}
+			if context.IsSet("volume-endpoint") {
+				VolumeEndpoint = context.String("volume-endpoint")
+			} else if config.VolumeEndpoint != "" {
+				VolumeEndpoint = config.VolumeEndpoint
+			} else {
+				VolumeEndpoint = context.GlobalString("volume-endpoint")
 			}
 			if context.IsSet("timeout") {
 				Timeout = context.Duration("timeout")

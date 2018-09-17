@@ -31,6 +31,8 @@ type TestContextType struct {
 	ReportPrefix string
 
 	// CRI client configurations.
+	VolumeServiceAddr      string
+	VolumeServiceTimeout   time.Duration
 	ImageServiceAddr      string
 	ImageServiceTimeout   time.Duration
 	RuntimeServiceAddr    string
@@ -56,6 +58,8 @@ func RegisterFlags() {
 
 	flag.StringVar(&TestContext.ReportPrefix, "report-prefix", "", "Optional prefix for JUnit XML reports. Default is empty, which doesn't prepend anything to the default name.")
 	flag.StringVar(&TestContext.ReportDir, "report-dir", "", "Path to the directory where the JUnit XML reports should be saved. Default is empty, which doesn't generate these reports.")
+	flag.StringVar(&TestContext.VolumeServiceAddr, "volume-endpoint", "", "Volume service socket for client to connect.")
+	flag.DurationVar(&TestContext.VolumeServiceTimeout, "volume-service-timeout", 300*time.Second, "Timeout when trying to connect to volume service.")
 	flag.StringVar(&TestContext.ImageServiceAddr, "image-endpoint", "", "Image service socket for client to connect.")
 	flag.DurationVar(&TestContext.ImageServiceTimeout, "image-service-timeout", 300*time.Second, "Timeout when trying to connect to image service.")
 

@@ -31,7 +31,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 	"golang.org/x/net/context"
-	pb "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
+	pb "github.com/alibaba/pouch/cri/apis/v1alpha2"
 )
 
 type containerByCreated []*pb.Container

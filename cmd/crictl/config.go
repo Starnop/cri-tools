@@ -32,6 +32,7 @@ import (
 type Config struct {
 	RuntimeEndpoint string `yaml:"runtime-endpoint"`
 	ImageEndpoint   string `yaml:"image-endpoint"`
+	VolumeEndpoint   string `yaml:"volume-endpoint"`
 	Timeout         int    `yaml:"timeout"`
 	Debug           bool   `yaml:"debug"`
 }
@@ -90,6 +91,8 @@ var configCommand = cli.Command{
 				fmt.Println(config.RuntimeEndpoint)
 			case "image-endpoint":
 				fmt.Println(config.ImageEndpoint)
+			case "volume-endpoint":
+				fmt.Println(config.VolumeEndpoint)
 			case "timeout":
 				fmt.Println(config.Timeout)
 			case "debug":
@@ -109,6 +112,8 @@ var configCommand = cli.Command{
 			config.RuntimeEndpoint = value
 		case "image-endpoint":
 			config.ImageEndpoint = value
+		case "volume-endpoint":
+			config.VolumeEndpoint = value
 		case "timeout":
 			n, err := strconv.Atoi(value)
 			if err != nil {

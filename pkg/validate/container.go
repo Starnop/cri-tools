@@ -27,11 +27,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/pkg/jsonlog"
+	internalapi "github.com/kubernetes-sigs/cri-tools/kubelet/apis/cri"
 	"github.com/kubernetes-sigs/cri-tools/pkg/framework"
-	internalapi "k8s.io/kubernetes/pkg/kubelet/apis/cri"
-	runtimeapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 
+	runtimeapi "github.com/alibaba/pouch/cri/apis/v1alpha2"
+	"github.com/docker/docker/pkg/jsonlog"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -59,10 +59,12 @@ var _ = framework.KubeDescribe("Container", func() {
 
 	var rc internalapi.RuntimeService
 	var ic internalapi.ImageManagerService
+	var vc internalapi.VolumeManagerService
 
 	BeforeEach(func() {
 		rc = f.CRIClient.CRIRuntimeClient
 		ic = f.CRIClient.CRIImageClient
+		vc = f.CRIClient.CRIVolumeClient
 	})
 
 	Context("runtime should support basic operations on container", func() {
@@ -266,6 +268,107 @@ var _ = framework.KubeDescribe("Container", func() {
 		})
 	})
 
+	Context("runtime should support extensional operations on container", func() {
+		var podID string
+		var podConfig *runtimeapi.PodSandboxConfig
+
+		BeforeEach(func() {
+			podID, podConfig = framework.CreatePodSandboxForContainer(rc)
+		})
+
+		AfterEach(func() {
+			By("stop PodSandbox")
+			rc.StopPodSandbox(podID)
+			By("delete PodSandbox")
+			rc.RemovePodSandbox(podID)
+		})
+
+		It("runtime should support creating extended container [Conformance]", func() {
+			By("create host path and flag file")
+			hostPath, _ := createHostPath(podID)
+
+			defer os.RemoveAll(hostPath) // clean up the TempDir
+
+			By("test create a extended container")
+			containerID := createExtendedContainer(rc, ic, "container-with-extended-test-", podID, podConfig, hostPath)
+
+			By("test list container")
+			containers := listContainerForID(rc, containerID)
+			Expect(containerFound(containers, containerID)).To(BeTrue(), "Container should be created")
+		})
+
+		It("runtime should support starting extended container [Conformance]", func() {
+			By("create host path and flag file")
+			hostPath, _ := createHostPath(podID)
+
+			defer os.RemoveAll(hostPath) // clean up the TempDir
+
+			By("create a extended container")
+			containerID := createExtendedContainer(rc, ic, "container-with-extended-test-", podID, podConfig, hostPath)
+
+			By("start container with extended")
+			testStartContainer(rc, containerID)
+		})
+
+		It("runtime should support getting container status [Conformance]", func() {
+			By("create host path and flag file")
+			hostPath, _ := createHostPath(podID)
+
+			defer os.RemoveAll(hostPath) // clean up the TempDir
+
+			By("create a extended container")
+			containerID := createExtendedContainer(rc, ic, "container-with-extended-test-", podID, podConfig, hostPath)
+
+			By("get container status")
+			containerStatus := getContainerStatus(rc, containerID)
+			Expect(containerStatus.GetQuotaId()).NotTo(BeNil(), "The quotaId of container should not be nil.")
+			Expect(containerStatus.GetResources()).NotTo(BeNil(), "The resources of container should not be nil.")
+			Expect(containerStatus.GetMounts()).NotTo(BeNil(), "The mounts of container should not be nil.")
+			Expect(containerStatus.GetEnvs()).NotTo(BeNil(), "The envs of container should not be nil.")
+		})
+
+		It("runtime should support getting image status [Conformance]", func() {
+			By("create host path and flag file")
+			hostPath, _ := createHostPath(podID)
+
+			defer os.RemoveAll(hostPath) // clean up the TempDir
+
+			By("create a extended container")
+			containerID := createExtendedContainer(rc, ic, "container-with-extended-test-", podID, podConfig, hostPath)
+
+			By("get image status")
+			containerStatus := getContainerStatus(rc, containerID)
+			imageStatus := framework.ImageStatus(ic, containerStatus.GetImage().GetImage()).GetVolumes()
+			Expect(imageStatus).NotTo(BeNil(), "The volumes of image should not be nil.")
+		})
+
+		It("runtime should support removing volumes [Conformance]", func() {
+			By("create host path and flag file")
+			hostPath, _ := createHostPath(podID)
+
+			defer os.RemoveAll(hostPath) // clean up the TempDir
+
+			By("create a extended container")
+			containerID := createExtendedContainer(rc, ic, "container-with-extended-test-", podID, podConfig, hostPath)
+
+			By("Get container mounts for containerID: " + containerID)
+			containerStatus := getContainerStatus(rc, containerID)
+			mounts := containerStatus.GetMounts()
+
+			By("Get container volumes for containerID: " + containerID)
+			volumeName := getContainerVolumeNamed(mounts)
+			Expect(volumeName).NotTo(Equal(""), "The volumeName should not be %s", "")
+
+			By("stop container")
+			stopContainer(rc, containerID, defaultStopContainerTimeout)
+
+			By("remove container")
+			removeContainer(rc, containerID)
+
+			// NOTE removeContainer will remove the relevant volume.
+		})
+	})
+
 })
 
 // containerFound returns whether containers is found.
@@ -276,6 +379,26 @@ func containerFound(containers []*runtimeapi.Container, containerID string) bool
 		}
 	}
 	return false
+}
+
+// mountFound returns whether mounts is found.
+func mountFound(mounts []*runtimeapi.Mount, mountName string) bool {
+	for _, mount := range mounts {
+		if mount.Name == mountName {
+			return true
+		}
+	}
+	return false
+}
+
+// getContainerVolumeNamed gets getContainerVolumeNamed for containerID and fails if it gets error.
+func getContainerVolumeNamed(mounts []*runtimeapi.Mount) string {
+	for _, v := range mounts {
+		if volumeName := v.GetName(); volumeName != "" {
+			return volumeName
+		}
+	}
+	return ""
 }
 
 // getContainerStatus gets ContainerState for containerID and fails if it gets error.
@@ -466,6 +589,24 @@ func createKeepLoggingContainer(rc internalapi.RuntimeService, ic internalapi.Im
 		LogPath:  path,
 	}
 	return containerConfig.LogPath, framework.CreateContainer(rc, ic, containerConfig, podID, podConfig)
+}
+
+// createExtendedContainer creates a container with fields extended, such as diskquota, quotaId, etc.
+func createExtendedContainer(rc internalapi.RuntimeService, ic internalapi.ImageManagerService, prefix string, podID string, podConfig *runtimeapi.PodSandboxConfig, hostPath string) string {
+	By("create a container with fields extended")
+	containerName := prefix + framework.NewUUID()
+	containerConfig := &runtimeapi.ContainerConfig{
+		Metadata: framework.BuildContainerMetadata(containerName, framework.DefaultAttempt),
+		Image:    &runtimeapi.ImageSpec{Image: framework.DefaultContainerVolumeImage},
+		Command:  []string{"sh", "-c", "top"},
+		Envs:     []*runtimeapi.KeyValue{{"GO_VERSION", "1.9.1"}},
+		Linux: &runtimeapi.LinuxContainerConfig{
+			Resources: &runtimeapi.LinuxContainerResources{
+				DiskQuota: map[string]string{"/": "10g"},
+			},
+		},
+	}
+	return framework.CreateContainer(rc, ic, containerConfig, podID, podConfig)
 }
 
 // pathExists check whether 'path' does exist or not

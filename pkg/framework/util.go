@@ -22,13 +22,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pborman/uuid"
-	internalapi "k8s.io/kubernetes/pkg/kubelet/apis/cri"
-	runtimeapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
-	"k8s.io/kubernetes/pkg/kubelet/remote"
+	internalapi "github.com/kubernetes-sigs/cri-tools/kubelet/apis/cri"
+	"github.com/kubernetes-sigs/cri-tools/kubelet/remote"
 
+	runtimeapi "github.com/alibaba/pouch/cri/apis/v1alpha2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/pborman/uuid"
 )
 
 var (
@@ -52,6 +52,9 @@ const (
 	// DefaultContainerImage is the default image for container using
 	DefaultContainerImage string = "busybox:1.28"
 
+	// DefaultContainerVolumeImage is the default image for container with volume using
+	DefaultContainerVolumeImage string = "starnop/busybox:vol"
+
 	// DefaultStopContainerTimeout is the default timeout for stopping container
 	DefaultStopContainerTimeout int64 = 60
 )
@@ -73,9 +76,20 @@ func LoadCRIClient() (*InternalAPIClient, error) {
 		return nil, err
 	}
 
+	var volumeServiceAddr = TestContext.VolumeServiceAddr
+	if volumeServiceAddr == "" {
+		// Fallback to runtime service endpoint
+		volumeServiceAddr = TestContext.RuntimeServiceAddr
+	}
+	vService, err := remote.NewRemoteVolumeService(volumeServiceAddr, TestContext.VolumeServiceTimeout)
+	if err != nil {
+		return nil, err
+	}
+
 	return &InternalAPIClient{
 		CRIRuntimeClient: rService,
 		CRIImageClient:   iService,
+		CRIVolumeClient:  vService,
 	}, nil
 }
 

@@ -30,7 +30,7 @@ import (
 	restclient "k8s.io/client-go/rest"
 	portforward "k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
-	pb "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
+	pb "github.com/alibaba/pouch/cri/apis/v1alpha2"
 )
 
 var runtimePortForwardCommand = cli.Command{

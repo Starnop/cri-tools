@@ -17,7 +17,7 @@ limitations under the License.
 package framework
 
 import (
-	internalapi "k8s.io/kubernetes/pkg/kubelet/apis/cri"
+	internalapi "github.com/kubernetes-sigs/cri-tools/kubelet/apis/cri"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -33,6 +33,7 @@ type Framework struct {
 type InternalAPIClient struct {
 	CRIRuntimeClient internalapi.RuntimeService
 	CRIImageClient   internalapi.ImageManagerService
+	CRIVolumeClient   internalapi.VolumeManagerService
 }
 
 // NewDefaultCRIFramework makes a new framework and sets up a BeforeEach/AfterEach for

@@ -31,7 +31,7 @@ import (
 	"github.com/urfave/cli"
 	"google.golang.org/grpc"
 	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
-	pb "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
+	pb "github.com/alibaba/pouch/cri/apis/v1alpha2"
 )
 
 const (
@@ -41,6 +41,7 @@ const (
 
 var runtimeClient pb.RuntimeServiceClient
 var imageClient pb.ImageServiceClient
+var volumeClient pb.VolumeServiceClient
 var conn *grpc.ClientConn
 
 type listOptions struct {
@@ -168,6 +169,17 @@ func getImageClient(context *cli.Context) error {
 		return fmt.Errorf("failed to connect: %v", err)
 	}
 	imageClient = pb.NewImageServiceClient(conn)
+	return nil
+}
+
+func getVolumeClient(context *cli.Context) error {
+	// Set up a connection to the server.
+	var err error
+	conn, err = getVolumeClientConnection(context)
+	if err != nil {
+		return fmt.Errorf("failed to connect: %v", err)
+	}
+	volumeClient = pb.NewVolumeServiceClient(conn)
 	return nil
 }
 

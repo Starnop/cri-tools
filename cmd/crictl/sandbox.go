@@ -32,7 +32,7 @@ import (
 	"github.com/urfave/cli"
 	"golang.org/x/net/context"
 
-	pb "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
+	pb "github.com/alibaba/pouch/cri/apis/v1alpha2"
 )
 
 type sandboxByCreated []*pb.PodSandbox
@@ -66,6 +66,29 @@ var runPodCommand = cli.Command{
 		err = RunPodSandbox(runtimeClient, podSandboxConfig)
 		if err != nil {
 			return fmt.Errorf("run pod sandbox failed: %v", err)
+		}
+		return nil
+	},
+}
+
+var startPodCommand = cli.Command{
+	Name:      "startp",
+	Usage:     "Start one or more created Pods",
+	ArgsUsage: "Pod-ID [Pod-ID...]",
+	Action: func(context *cli.Context) error {
+		if context.NArg() == 0 {
+			return cli.ShowSubcommandHelp(context)
+		}
+		if err := getRuntimeClient(context); err != nil {
+			return err
+		}
+
+		for i := 0; i < context.NArg(); i++ {
+			podID := context.Args().Get(i)
+			err := StartPodSandbox(runtimeClient, podID)
+			if err != nil {
+				return fmt.Errorf("Starting the pod %q failed: %v", podID, err)
+			}
 		}
 		return nil
 	},
@@ -245,6 +268,25 @@ func RunPodSandbox(client pb.RuntimeServiceClient, config *pb.PodSandboxConfig) 
 		return err
 	}
 	fmt.Println(r.PodSandboxId)
+	return nil
+}
+
+// StartPodSandbox sends a StartPodSandboxRequest to the server, and parses
+// the returned StartPodSandboxResponse.
+func StartPodSandbox(client pb.RuntimeServiceClient, ID string) error {
+	if ID == "" {
+		return fmt.Errorf("ID cannot be empty")
+	}
+	request := &pb.StartPodSandboxRequest{
+		PodSandboxId: ID,
+	}
+	logrus.Debugf("StartPodSandboxRequest: %v", request)
+	r, err := client.StartPodSandbox(context.Background(), request)
+	logrus.Debugf("StartPodSandboxResponse: %v", r)
+	if err != nil {
+		return err
+	}
+	fmt.Println(ID)
 	return nil
 }
 

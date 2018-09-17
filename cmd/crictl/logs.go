@@ -25,7 +25,7 @@ import (
 	"github.com/urfave/cli"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/kubernetes/pkg/kubelet/kuberuntime/logs"
+	"github.com/kubernetes-sigs/cri-tools/kubelet/kuberuntime/logs"
 )
 
 var logsCommand = cli.Command{
