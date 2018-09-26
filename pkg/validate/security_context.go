@@ -20,15 +20,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/kubernetes-sigs/cri-tools/pkg/framework"
-	internalapi "github.com/kubernetes-sigs/cri-tools/kubelet/apis/cri"
 	runtimeapi "github.com/alibaba/pouch/cri/apis/v1alpha2"
+	internalapi "github.com/kubernetes-sigs/cri-tools/kubelet/apis/cri"
+	"github.com/kubernetes-sigs/cri-tools/pkg/framework"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -55,18 +54,18 @@ var _ = framework.KubeDescribe("Security Context", func() {
 	})
 
 	AfterEach(func() {
-		if podID != "" {
-			By("stop PodSandbox")
-			rc.StopPodSandbox(podID)
-			By("delete PodSandbox")
-			rc.RemovePodSandbox(podID)
-		}
-		if podLogDir != "" {
-			os.RemoveAll(podLogDir)
-		}
-		for _, dir := range dirToCleanup {
-			os.RemoveAll(dir)
-		}
+		//if podID != "" {
+		//	By("stop PodSandbox")
+		//	rc.StopPodSandbox(podID)
+		//	By("delete PodSandbox")
+		//	rc.RemovePodSandbox(podID)
+		//}
+		//if podLogDir != "" {
+		//	os.RemoveAll(podLogDir)
+		//}
+		//for _, dir := range dirToCleanup {
+		//	os.RemoveAll(dir)
+		//}
 	})
 
 	Context("NamespaceOption", func() {
@@ -1052,7 +1051,7 @@ func verifySeccomp(rc internalapi.RuntimeService, containerID string, command []
 
 	if expectError {
 		Expect(err).To(HaveOccurred(), msg)
-		Expect(string(stderr)).To(ContainSubstring(output))
+		Expect(string(stdout)).To(ContainSubstring(output))
 	} else {
 		Expect(err).NotTo(HaveOccurred(), msg)
 		Expect(string(stdout)).To(ContainSubstring(output))
