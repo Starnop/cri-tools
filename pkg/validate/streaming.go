@@ -218,7 +218,8 @@ func checkAttach(c internalapi.RuntimeService, attachServerURL string) {
 		Tty:    false,
 	})
 	framework.ExpectNoError(err, "failed to open streamer for %q", attachServerURL)
-
+	framework.Logf("print %v:%d", localOut.Bytes(), len(out))
+	framework.Logf("%s:%d", "hello\n", len("hello\n"))
 	Expect(out).To(Equal("hello\n"), "The stdout of exec should be hello")
 	Expect(localErr.String()).To(BeEmpty(), "The stderr of attach should be empty")
 	framework.Logf("Check attach url %q succeed", attachServerURL)
